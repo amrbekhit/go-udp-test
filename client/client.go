@@ -7,17 +7,23 @@ import (
 
 // Client represents a UDP client
 type Client struct {
-	conn        net.Conn
+	conn        *net.UDPConn
 	RX, TX      chan *string
 	finished    *sync.WaitGroup
 	requestStop chan int
+	udpAddr     *net.UDPAddr
 }
 
 // Start starts the UDP client
 func (c *Client) Start(address string) error {
 	var err error
 
-	c.conn, err = net.Dial("udp", address)
+	c.udpAddr, err = net.ResolveUDPAddr("udp", address)
+	if err != nil {
+		return err
+	}
+
+	c.conn, err = net.ListenUDP("udp", nil)
 	if err != nil {
 		return err
 	}
@@ -60,7 +66,7 @@ func (c *Client) Start(address string) error {
 		for {
 			select {
 			case msg := <-c.TX:
-				c.conn.Write([]byte(*msg))
+				c.conn.WriteTo([]byte(*msg), c.udpAddr)
 			case <-c.requestStop:
 				break loop
 			}
